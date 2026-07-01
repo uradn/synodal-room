@@ -13,16 +13,20 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/tiles": {
-        target: "http://192.168.99.87:8120",
+        target: "http://localhost:8120",
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/tiles/, ""),
       },
       "/cog": {
-        target: "http://192.168.99.87:8110",
+        target: "http://localhost:8110",
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/cog/, "/cog"),
       },
       "/tms": {
         target: "https://lcz-generator.rub.de",
         changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/tms/, ""),
       },
     },
   },

@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+.env.*
+yarn-error.log
+npm-debug.log*
+
+# Exclude raw (uncompressed) GeoJSON — hanya pakai yang simplified
+public/data/keuskupan-indonesia.geojson
