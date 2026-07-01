@@ -343,91 +343,6 @@ function addLayers() {
       );
   });
 
-  // Relative Wealth Index per Kabupaten/Kota
-  if (!map.getSource("kabupaten-rwi")) {
-    map.addSource("kabupaten-rwi", {
-      type: "geojson",
-      data: "/data/kabupaten_rwi.geojson",
-      generateId: true,
-    });
-    map.addLayer(
-      {
-        id: "kabupaten-rwi-fill",
-        type: "fill",
-        source: "kabupaten-rwi",
-        paint: {
-          "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["coalesce", ["get", "rwi_mean"], -2],
-            -0.7, "#1a237e",  // very poor — deep blue
-            -0.4, "#3949ab",
-            -0.1, "#7986cb",
-             0.0, "#e8eaf6",  // middle — near white
-             0.3, "#ef9a9a",
-             0.6, "#e53935",
-             1.5, "#7f0000",  // very wealthy — deep red
-          ],
-          "fill-opacity": [
-            "case",
-            ["boolean", ["feature-state", "hover"], false], 0.85,
-            0.7,
-          ],
-        },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-fill",
-    );
-    map.addLayer(
-      {
-        id: "kabupaten-rwi-line",
-        type: "line",
-        source: "kabupaten-rwi",
-        paint: {
-          "line-color": "#ffffff",
-          "line-width": 0.4,
-          "line-opacity": 0.5,
-        },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-fill",
-    );
-
-    let hoveredKabId: string | number | null = null;
-    const rwi_popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
-
-    map.on("mousemove", "kabupaten-rwi-fill", (e) => {
-      if (hoveredKabId !== null) {
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
-      }
-      if (e.features && e.features.length > 0) {
-        hoveredKabId = e.features[0].id!;
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: true });
-        const p = e.features[0].properties as Record<string, unknown>;
-        const rwi = typeof p.rwi_mean === "number" ? p.rwi_mean.toFixed(3) : "N/A";
-        const label = rwi !== "N/A"
-          ? Number(p.rwi_mean) >= 0.3 ? "Relatif kaya" : Number(p.rwi_mean) <= -0.3 ? "Relatif miskin" : "Menengah"
-          : "";
-        rwi_popup
-          .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-size:12px;line-height:1.5">
-            <b style="color:#111">${p.nama || ""}</b><br>
-            <span style="color:#555">${p.provinsi || ""}</span><br>
-            <span style="color:#111">RWI: <b>${rwi}</b> ${label ? `<em>(${label})</em>` : ""}</span><br>
-            <span style="color:#888;font-size:11px">${p.rwi_count || 0} titik data</span>
-          </div>`)
-          .addTo(map);
-      }
-    });
-    map.on("mouseleave", "kabupaten-rwi-fill", () => {
-      if (hoveredKabId !== null) {
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
-        hoveredKabId = null;
-      }
-      rwi_popup.remove();
-    });
-  }
-
   // Keuskupan se-Indonesia Layer
   if (!map.getSource("keuskupan")) {
     map.addSource("keuskupan", {
@@ -601,6 +516,84 @@ function addLayers() {
     });
   }
 
+  // Relative Wealth Index per Kabupaten/Kota — added after keuskupan so keuskupan-label exists
+  if (!map.getSource("kabupaten-rwi")) {
+    map.addSource("kabupaten-rwi", {
+      type: "geojson",
+      data: "/data/kabupaten_rwi.geojson",
+      generateId: true,
+    });
+    map.addLayer({
+      id: "kabupaten-rwi-fill",
+      type: "fill",
+      source: "kabupaten-rwi",
+      paint: {
+        "fill-color": [
+          "interpolate",
+          ["linear"],
+          ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
+          -0.7, "#2166ac",
+          -0.3, "#74add1",
+           0.0, "#f7f7f7",
+           0.4, "#f4a582",
+           1.4, "#b2182b",
+        ],
+        "fill-opacity": [
+          "case",
+          ["boolean", ["feature-state", "hover"], false], 0.9,
+          0.8,
+        ],
+      },
+      layout: { visibility: "none" },
+    });
+    map.addLayer({
+      id: "kabupaten-rwi-line",
+      type: "line",
+      source: "kabupaten-rwi",
+      paint: {
+        "line-color": "#888888",
+        "line-width": 0.3,
+        "line-opacity": 0.6,
+      },
+      layout: { visibility: "none" },
+    });
+
+    let hoveredKabId: string | number | null = null;
+    const rwi_popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
+
+    map.on("mousemove", "kabupaten-rwi-fill", (e) => {
+      if (hoveredKabId !== null) {
+        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
+      }
+      if (e.features && e.features.length > 0) {
+        hoveredKabId = e.features[0].id!;
+        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: true });
+        const p = e.features[0].properties as Record<string, unknown>;
+        const rwiVal = p.rwi_mean !== null && p.rwi_mean !== undefined ? Number(p.rwi_mean) : null;
+        const rwiStr = rwiVal !== null ? rwiVal.toFixed(3) : "N/A";
+        const label = rwiVal !== null
+          ? rwiVal >= 0.3 ? "Relatif kaya" : rwiVal <= -0.3 ? "Relatif miskin" : "Menengah"
+          : "";
+        rwi_popup
+          .setLngLat(e.lngLat)
+          .setHTML(`<div style="font-size:12px;line-height:1.5">
+            <b style="color:#111">${p.nama || ""}</b><br>
+            <span style="color:#555">${p.provinsi || ""}</span><br>
+            <span style="color:#111">RWI: <b>${rwiStr}</b>${label ? ` <em>(${label})</em>` : ""}</span><br>
+            <span style="color:#888;font-size:11px">${p.rwi_count || 0} titik data</span>
+          </div>`)
+          .addTo(map);
+      }
+    });
+    map.on("mouseleave", "kabupaten-rwi-fill", () => {
+      if (hoveredKabId !== null) {
+        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
+        hoveredKabId = null;
+      }
+      rwi_popup.remove();
+    });
+  }
+
 }
 
 function toogleBasemap(isRaster: boolean) {
@@ -706,7 +699,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
     legend: {
       type: "gradient",
       gradient: {
-        colors: ["#1a237e", "#7986cb", "#e8eaf6", "#ef9a9a", "#7f0000"],
+        colors: ["#2166ac", "#74add1", "#f7f7f7", "#f4a582", "#b2182b"],
         labels: ["Miskin", "", "Tengah", "", "Kaya"],
       },
       note: "Rata-rata RWI per kabupaten/kota. Sumber: Meta Data for Good 2024.",
@@ -862,7 +855,8 @@ class LayerToggleControl implements IControl {
     LAYER_CONFIGS.forEach((config) => {
       const hiddenByDefault =
         config.id === "lcz" ||
-        config.id === "disaster-risk";
+        config.id === "disaster-risk" ||
+        config.id === "rwi";
       defaultStates.set(config.id, !hiddenByDefault);
       // Add child layer states for groups
       if (config.children) {
