@@ -523,40 +523,47 @@ function addLayers() {
       data: "/data/kabupaten_rwi.geojson",
       generateId: true,
     });
-    map.addLayer({
-      id: "kabupaten-rwi-fill",
-      type: "fill",
-      source: "kabupaten-rwi",
-      paint: {
-        "fill-color": [
-          "interpolate",
-          ["linear"],
-          ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
-          -0.7, "#2166ac",
-          -0.3, "#74add1",
-           0.0, "#f7f7f7",
-           0.4, "#f4a582",
-           1.4, "#b2182b",
-        ],
-        "fill-opacity": [
-          "case",
-          ["boolean", ["feature-state", "hover"], false], 0.9,
-          0.8,
-        ],
+    // Insert below keuskupan-line so keuskupan & provinsi boundaries render on top
+    map.addLayer(
+      {
+        id: "kabupaten-rwi-fill",
+        type: "fill",
+        source: "kabupaten-rwi",
+        paint: {
+          "fill-color": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
+            -0.7, "#2166ac",
+            -0.3, "#74add1",
+             0.0, "#f7f7f7",
+             0.4, "#f4a582",
+             1.4, "#b2182b",
+          ],
+          "fill-opacity": [
+            "case",
+            ["boolean", ["feature-state", "hover"], false], 0.6,
+            0.45,
+          ],
+        },
+        layout: { visibility: "none" },
       },
-      layout: { visibility: "none" },
-    });
-    map.addLayer({
-      id: "kabupaten-rwi-line",
-      type: "line",
-      source: "kabupaten-rwi",
-      paint: {
-        "line-color": "#888888",
-        "line-width": 0.3,
-        "line-opacity": 0.6,
+      "keuskupan-line",
+    );
+    map.addLayer(
+      {
+        id: "kabupaten-rwi-line",
+        type: "line",
+        source: "kabupaten-rwi",
+        paint: {
+          "line-color": "#555555",
+          "line-width": 0.4,
+          "line-opacity": 0.4,
+        },
+        layout: { visibility: "none" },
       },
-      layout: { visibility: "none" },
-    });
+      "keuskupan-line",
+    );
 
     let hoveredKabId: string | number | null = null;
     const rwi_popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
