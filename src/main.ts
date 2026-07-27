@@ -868,7 +868,13 @@ class LayerToggleControl implements IControl {
       // Add child layer states for groups
       if (config.children) {
         config.children.forEach((child) => {
-          defaultStates.set(child.id, false);
+          // Disaster risk children default visible; others hidden
+          const visibleByDefault =
+            child.id === "disaster-flood" ||
+            child.id === "disaster-extreme-weather" ||
+            child.id === "disaster-drought" ||
+            child.id === "disaster-landslide";
+          defaultStates.set(child.id, visibleByDefault);
         });
       }
     });
