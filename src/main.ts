@@ -861,7 +861,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
             colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
             labels: ["-1.73 (termiskin)", "-0.75", "-0.18 (median)", "+0.4", "+1.95 (terkaya)"],
           },
-          note: "Angka aktual skor RWI per sel ~2.4km. Bukan Rupiah — relatif dalam Indonesia saja.",
+          note: "Titik = satu kotak ~2.4×2.4 km. Warna tiap titik = skor kemampuan ekonomi area itu dibanding seluruh Indonesia. Merah tua = paling tertinggal, hijau tua = paling maju. Zoom in untuk membaca pola antar-kelurahan.",
         },
       },
       {
@@ -875,7 +875,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
             colors: ["#fee08b", "#f46d43", "#d73027", "#a50026"],
             labels: ["Sedikit titik miskin di sekitar", "", "", "Banyak titik miskin menumpuk"],
           },
-          note: "Kepekatan RELATIF — akumulasi lokal grid RWI < -0.18 yang berdekatan.",
+          note: "Warna merah menunjukkan di mana banyak area miskin berkelompok. Merah gelap = konsentrasi kemiskinan tinggi di satu kawasan, bukan hanya satu titik. Cocok untuk melihat pola kemiskinan di skala wilayah (kecamatan–kota).",
         },
       },
       {
@@ -889,7 +889,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
             colors: ["#d9f0a3", "#78c679", "#238443", "#00441b"],
             labels: ["Sedikit titik kaya di sekitar", "", "", "Banyak titik kaya menumpuk"],
           },
-          note: "Kepekatan RELATIF — akumulasi lokal grid RWI > -0.18 yang berdekatan.",
+          note: "Warna hijau menunjukkan di mana banyak area kaya berkelompok. Hijau gelap = konsentrasi kemampuan ekonomi tinggi di satu kawasan. Cocok untuk melihat pusat ekonomi dan koridor sejahtera.",
         },
       },
       {
@@ -903,7 +903,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
             colors: ["#fb6a4a", "#cb181d", "#67000d"],
             labels: ["RWI -0.3", "-0.75", "-1.75 (termiskin)"],
           },
-          note: "Hanya sel RWI < -0.3 (jelas di bawah median). Tampil mulai zoom 8 — cocok untuk analisis intra-FUA dan metropolitan.",
+          note: "Menampilkan HANYA area yang jelas tertinggal (skor < -0.3, di bawah rata-rata nasional). Muncul saat zoom ke kota/kecamatan. Gunakan ini untuk mencari kantong miskin tersembunyi di dalam kota besar — misalnya permukiman padat di tengah Jakarta atau Surabaya yang tidak terlihat dari heatmap umum.",
         },
       },
     ],
@@ -913,7 +913,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
         colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
         labels: ["-1.73 (termiskin)", "-0.75", "-0.18 (median)", "+0.4", "+1.95 (terkaya)"],
       },
-      note: "Meta Data for Good · 115.625 titik grid ~2.4km se-Indonesia.",
+      note: "Setiap titik mewakili area ~2.4×2.4 km. Warna menunjukkan kemampuan ekonomi RELATIF — bukan pendapatan absolut, bukan angka kemiskinan resmi. Merah = lebih miskin dibanding rata-rata Indonesia; hijau = lebih kaya. Sumber: Meta Data for Good (Facebook/Meta), 115.625 titik grid.",
     },
   },
   {
