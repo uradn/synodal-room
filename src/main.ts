@@ -219,6 +219,41 @@ function addLayers() {
       minzoom: 8,
     });
 
+  // FUA popup on click
+  const fuaPopup = new maplibregl.Popup({ closeButton: true, maxWidth: "300px" });
+  map.on("click", "idn-fua-fill-layer", (e) => {
+    const f = e.features?.[0];
+    if (!f) return;
+    const p = f.properties as Record<string, unknown>;
+    const num = (k: string, decimals = 0) => {
+      const v = Number(p[k]);
+      return isNaN(v) ? "—" : v.toLocaleString("id-ID", { maximumFractionDigits: decimals });
+    };
+    const row = (label: string, val: string) =>
+      `<tr><td style="color:#888;font-size:11px;padding:3px 12px 3px 0;white-space:nowrap">${label}</td>
+       <td style="color:#111;font-size:12px;padding:3px 0;font-weight:500">${val}</td></tr>`;
+    fuaPopup
+      .setLngLat(e.lngLat)
+      .setHTML(`
+        <div style="font-family:system-ui,sans-serif;line-height:1.5">
+          <strong style="font-size:14px;display:block;margin-bottom:8px">${p["eFUA_name"] ?? "—"}</strong>
+          <table style="border-collapse:collapse;width:100%">
+            ${row("Negara", String(p["Cntry_name"] ?? "Indonesia"))}
+            ${row("Luas FUA", `${num("FUA_area")} km²`)}
+            ${row("Populasi FUA (2015)", num("FUA_p_2015"))}
+            ${row("Jumlah Urban Center", num("UC_num"))}
+            ${row("Luas Urban Center", `${num("UC_area")} km²`)}
+            ${row("Populasi Urban Center", num("UC_p_2015"))}
+            ${row("Populasi Commuting", num("Com_p_2015"))}
+          </table>
+          <div style="margin-top:6px;font-size:10px;color:#bbb">Sumber: GHSL FUA 2015 · JRC/EC</div>
+        </div>
+      `)
+      .addTo(map);
+  });
+  map.on("mouseenter", "idn-fua-fill-layer", () => { map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", "idn-fua-fill-layer", () => { map.getCanvas().style.cursor = ""; });
+
   // H3 Indopopulation Density Layer
   !map.getLayer("idn-h3-pop-density-layer") &&
     map.addLayer(
