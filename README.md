@@ -1,31 +1,47 @@
 # Synodal Room Intelligence
 
-An interactive geospatial dashboard for Indonesia built with MapLibre GL. Overlays ecclesiastical, demographic, climate, and disaster risk data on a single map interface.
+Interactive geospatial dashboard for the Catholic Church in Indonesia. Built with MapLibre GL — overlays ecclesiastical, demographic, wealth, climate, and disaster risk data on a single map.
 
-![screenshot](docs/screenshot.png)
+Part of the **Synodal Room** platform: pairs with [SR_dashboard](https://github.com/uradn/SR_dashboard) which embeds this map alongside macro intelligence (Dexter/dex_indonesia) at `localhost:8300`.
 
 ## Layers
 
-| Layer | Source | Default |
-|---|---|---|
-| **Keuskupan se-Indonesia** | GeoJSON (bundled) | On |
-| **Functional Urban Areas** | Martin tile server | On |
-| **Population Density** | Martin tile server (H3) | On |
-| **Local Climate Zones** | LCZ Generator / WUDAPT | Off |
-| **Disaster Risk — Flood** | BNPB via TiTiler COG | Off |
-| **Disaster Risk — Extreme Weather** | BNPB via TiTiler COG | Off |
-| **Disaster Risk — Drought** | BNPB via TiTiler COG | Off |
-| **Disaster Risk — Landslide** | BNPB via TiTiler COG | Off |
+| Layer | Source | Default | Notes |
+|---|---|---|---|
+| **Keuskupan se-Indonesia** | GeoJSON (bundled) | On | 38 dioceses; click for bishop + live news |
+| **Batas Kabupaten/Kota** | Martin (idn_adm2) | Off | ADM2 boundaries, zoom ≥ 4 |
+| **Batas Kecamatan** | Martin (idn_admin3_hdx2020) | Off | ADM3 boundaries, zoom ≥ 8 |
+| **Relative Wealth Index** | Martin (rwi_indonesia) | Off | Meta/HDX ~2.4 km grid; circle + dual heatmap (poverty/wealth) |
+| **Functional Urban Areas** | Martin (IDN_FUA) | On | |
+| **Population Density** | Martin (indopopulation-res5-10) | On | H3 hexagons |
+| **Local Climate Zones** | LCZ Generator / WUDAPT | Off | |
+| **Disaster Risk — Flood** | BNPB via TiTiler COG | On | |
+| **Disaster Risk — Extreme Weather** | BNPB via TiTiler COG | On | |
+| **Disaster Risk — Drought** | BNPB via TiTiler COG | On | |
+| **Disaster Risk — Landslide** | BNPB via TiTiler COG | On | |
 
-The Keuskupan layer visualizes 38 dioceses across Indonesia, color-coded by type (Keuskupan Agung, Keuskupan, Ordinariat Militer) with hover highlight and click popup (bishop, cathedral, estimated Catholic population, number of parishes).
+### Keuskupan popup
+
+Clicking any diocese shows:
+- **Uskup** (bishop name + year of appointment, updated Jul 2026 via Exa search)
+- **Umat Katolik** + total wilayah population for comparison (BPS SP2020)
+- **Catatan Strategis** (static pastoral note)
+- **Berita Terbaru** — live news fetched via `localhost:8300/api/search` (Exa → Tavily fallback)
+
+Bishop data last verified: **July 2026**. 10 updates applied from previous GeoJSON:
+KA Medan, KA Kupang, Banjarmasin, Surabaya, KA Makassar, KA Pontianak (Sede Vacante), Bogor (Sede Vacante), KA Ende, Labuan Bajo (uskup pertama), Maumere.
+
+### Basemap
+
+Dropdown — Street / Satellite / Dark / Positron (OpenFreeMap vector tiles + ArcGIS satellite raster).
 
 ## Tech Stack
 
 - [MapLibre GL JS](https://maplibre.org/) — WebGL map rendering
 - [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
 - [Martin](https://martin.maplibre.org/) — self-hosted vector tile server
-- [TiTiler](https://developmentseed.org/titiler/) — Cloud-Optimized GeoTIFF tile server (for BNPB raster data)
-- Nginx — reverse proxy + static file serving
+- [TiTiler](https://developmentseed.org/titiler/) — COG raster tile server (BNPB data)
+- Nginx — static file serving inside Docker
 
 ## Getting Started
 
@@ -36,88 +52,57 @@ npm install
 npm run dev
 ```
 
-Create a `.env` file at the project root:
+`.env` at project root:
 
 ```env
-VITE_MARTIN_TILE_SERVER=http://localhost:3000
-VITE_LCZ_TILE_SERVER=http://localhost:8080
-VITE_BNPB_TILE_SERVER=http://localhost:8888
+VITE_MARTIN_TILE_SERVER=http://localhost:8120
+VITE_LCZ_TILE_SERVER=http://localhost:8130
+VITE_BNPB_TILE_SERVER=http://localhost:8110
 ```
 
 ### Build
 
 ```bash
-npm run build
-# output: dist/
+npm run build   # output: dist/
 ```
 
 ## Docker Deployment
 
-The stack consists of three services: the web frontend (nginx), a Martin vector tile server, and a TiTiler COG raster server.
-
-### Dockerfile (web)
-
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-EXPOSE 80
-```
-
-### docker-compose.yaml
+Part of a larger TITAN ADMF compose stack. Minimum services needed:
 
 ```yaml
 services:
-  synodal-web:
+  synodal-room:
     build: .
-    container_name: synodal-web
     ports:
-      - "80:80"
+      - "8200:80"
     restart: unless-stopped
 
   martin-tileserver:
     image: ghcr.io/maplibre/martin:1.0.0
-    container_name: martin-tileserver
-    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "8120:3000"
     volumes:
       - ./tiles:/data
     command: ["--config", "/data/config.yaml"]
 
   titiler:
     image: ghcr.io/developmentseed/titiler:latest
-    container_name: titiler
     ports:
-      - "8888:8000"
-    restart: unless-stopped
-    command: ["uvicorn", "titiler.application.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+      - "8110:8000"
     environment:
       - PYTHONWARNINGS=ignore
-    volumes:
-      - ./bnpb:/data/bnpb
-
-networks:
-  default:
-    driver: bridge
-    name: synodal-network
 ```
 
-### Data requirements
+### Required Martin tile sources
 
-**Vector tiles** — served by Martin. Place tile files and a `config.yaml` in `./tiles/`. Required sources:
+- `IDN_FUA` — Functional Urban Areas
+- `indopopulation-res5-10` — H3 population density
+- `idn_adm2` — Kabupaten/Kota boundaries (geoBoundaries ADM2)
+- `idn_admin3_hdx2020` — Kecamatan boundaries (HDX 2020)
+- `rwi_indonesia` — Relative Wealth Index point grid (Meta Data for Good)
 
-- `IDN_FUA` — Functional Urban Areas (Indonesia)
-- `indopopulation-res5-10` — H3 population density grid
-
-**BNPB raster files** — Cloud-Optimized GeoTIFFs mounted at `/data/bnpb` in the titiler container:
+### Required BNPB COG files (mounted in TiTiler)
 
 ```
 bnpb/
@@ -127,15 +112,23 @@ bnpb/
 └── ID_TANAHLONGSOR_COG.tif
 ```
 
-**Keuskupan GeoJSON** — already bundled in `public/data/`, no extra setup needed.
+### Live news (optional)
+
+Popup fetches berita terbaru from `localhost:8300/api/search`. Requires
+[SR_dashboard](https://github.com/uradn/SR_dashboard) running with `EXASEARCH_API_KEY`
+or `TAVILY_API_KEY` in `../dexter/.env`. Degrades gracefully if unavailable.
+
+```bash
+# Start SR_dashboard (sibling dir)
+cd ../SR_dashboard && bun start
+```
 
 ### Run
 
 ```bash
 docker compose up -d
+# Dashboard: http://localhost:8200
 ```
-
-The dashboard will be available at `http://localhost`.
 
 ## License
 
