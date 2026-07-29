@@ -557,23 +557,64 @@ function addLayers() {
     });
   }
 
-  // Relative Wealth Index — Meta/HDX point grid (~2.4km cells)
+  // Relative Wealth Index — zoom-adaptive:
+  //   zoom < 7  → choropleth per kabupaten (rwi_mean aggregate, GeoJSON)
+  //   zoom ≥ 7  → diverging circle per sel ~2.4km (rwi_indonesia vector tiles)
+  if (!map.getSource("kabupaten-rwi")) {
+    map.addSource("kabupaten-rwi", {
+      type: "geojson",
+      data: "/data/kabupaten_rwi.geojson",
+      generateId: true,
+    });
+    map.addLayer(
+      {
+        id: "rwi-choropleth-fill",
+        type: "fill",
+        source: "kabupaten-rwi",
+        maxzoom: 7,
+        paint: {
+          "fill-color": [
+            "interpolate", ["linear"],
+            ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
+            -1.0, "#a50026",
+            -0.4, "#f46d43",
+             0.0, "#fee08b",
+             0.4, "#a6d96a",
+             1.2, "#006837",
+          ],
+          "fill-opacity": 0.65,
+        },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
+    map.addLayer(
+      {
+        id: "rwi-choropleth-line",
+        type: "line",
+        source: "kabupaten-rwi",
+        maxzoom: 7,
+        paint: { "line-color": "#333", "line-width": 0.3, "line-opacity": 0.3 },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
+  }
+
   if (!map.getSource("rwi-indonesia")) {
     map.addSource("rwi-indonesia", {
       type: "vector",
       url: `${TILE_SERVER}/rwi_indonesia`,
     });
-
-    // Diverging circle layer — red=poor, green=wealthy
     map.addLayer(
       {
         id: "rwi-indonesia-layer",
         source: "rwi-indonesia",
         "source-layer": "rwi_indonesia",
         type: "circle",
-        minzoom: 3,
+        minzoom: 7,
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.5, 10, 5, 14, 9],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 2, 10, 4, 14, 8],
           "circle-color": [
             "interpolate", ["linear"], ["get", "rwi"],
             -1.75, "#a50026",
@@ -582,62 +623,8 @@ function addLayers() {
              0.40, "#a6d96a",
              2.00, "#006837",
           ],
-          "circle-opacity": 0.75,
+          "circle-opacity": 0.8,
           "circle-stroke-width": 0,
-        },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-line",
-    );
-
-    // Poverty heatmap (negative RWI → red)
-    map.addLayer(
-      {
-        id: "rwi-indonesia-heatmap-poverty",
-        source: "rwi-indonesia",
-        "source-layer": "rwi_indonesia",
-        type: "heatmap",
-        minzoom: 3,
-        paint: {
-          "heatmap-weight": ["max", 0, ["-", 0, ["get", "rwi"]]] as maplibregl.ExpressionSpecification,
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
-          "heatmap-color": [
-            "interpolate", ["linear"], ["heatmap-density"],
-            0, "rgba(0,0,0,0)",
-            0.2, "#fee08b",
-            0.5, "#f46d43",
-            0.8, "#d73027",
-            1,   "#a50026",
-          ],
-          "heatmap-opacity": 0.75,
-        },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-line",
-    );
-
-    // Wealth heatmap (positive RWI → green)
-    map.addLayer(
-      {
-        id: "rwi-indonesia-heatmap-wealth",
-        source: "rwi-indonesia",
-        "source-layer": "rwi_indonesia",
-        type: "heatmap",
-        minzoom: 3,
-        paint: {
-          "heatmap-weight": ["max", 0, ["get", "rwi"]] as maplibregl.ExpressionSpecification,
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
-          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
-          "heatmap-color": [
-            "interpolate", ["linear"], ["heatmap-density"],
-            0, "rgba(0,0,0,0)",
-            0.2, "#d9f0a3",
-            0.5, "#78c679",
-            0.8, "#238443",
-            1,   "#00441b",
-          ],
-          "heatmap-opacity": 0.75,
         },
         layout: { visibility: "none" },
       },
@@ -831,7 +818,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
   {
     id: "rwi",
     label: "Relative Wealth Index (RWI)",
-    layers: ["rwi-indonesia-layer", "rwi-indonesia-heatmap-poverty", "rwi-indonesia-heatmap-wealth"],
+    layers: ["rwi-choropleth-fill", "rwi-choropleth-line", "rwi-indonesia-layer"],
     color: "#e53935",
     legend: {
       type: "gradient",
@@ -839,7 +826,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
         colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
         labels: ["Miskin", "", "Tengah", "", "Kaya"],
       },
-      note: "Grid ~2.4km per sel. Merah=kemiskinan relatif, hijau=kemampuan relatif. Sumber: Meta Data for Good.",
+      note: "Zoom < 7: choropleth per kabupaten. Zoom ≥ 7: titik per sel ~2.4km. Sumber: Meta Data for Good.",
     },
   },
   {
