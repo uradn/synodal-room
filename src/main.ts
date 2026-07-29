@@ -516,89 +516,178 @@ function addLayers() {
     });
   }
 
-  // Relative Wealth Index per Kabupaten/Kota — added after keuskupan so keuskupan-label exists
-  if (!map.getSource("kabupaten-rwi")) {
-    map.addSource("kabupaten-rwi", {
-      type: "geojson",
-      data: "/data/kabupaten_rwi.geojson",
-      generateId: true,
+  // Relative Wealth Index — Meta/HDX point grid (~2.4km cells)
+  if (!map.getSource("rwi-indonesia")) {
+    map.addSource("rwi-indonesia", {
+      type: "vector",
+      url: `${TILE_SERVER}/rwi_indonesia`,
     });
-    // Insert below keuskupan-line so keuskupan & provinsi boundaries render on top
+
+    // Diverging circle layer — red=poor, green=wealthy
     map.addLayer(
       {
-        id: "kabupaten-rwi-fill",
+        id: "rwi-indonesia-layer",
+        source: "rwi-indonesia",
+        "source-layer": "rwi_indonesia",
+        type: "circle",
+        minzoom: 3,
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.5, 10, 5, 14, 9],
+          "circle-color": [
+            "interpolate", ["linear"], ["get", "rwi"],
+            -1.75, "#a50026",
+            -0.75, "#f46d43",
+            -0.18, "#fee08b",
+             0.40, "#a6d96a",
+             2.00, "#006837",
+          ],
+          "circle-opacity": 0.75,
+          "circle-stroke-width": 0,
+        },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
+
+    // Poverty heatmap (negative RWI → red)
+    map.addLayer(
+      {
+        id: "rwi-indonesia-heatmap-poverty",
+        source: "rwi-indonesia",
+        "source-layer": "rwi_indonesia",
+        type: "heatmap",
+        minzoom: 3,
+        paint: {
+          "heatmap-weight": ["max", 0, ["-", 0, ["get", "rwi"]]] as maplibregl.ExpressionSpecification,
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
+          "heatmap-color": [
+            "interpolate", ["linear"], ["heatmap-density"],
+            0, "rgba(0,0,0,0)",
+            0.2, "#fee08b",
+            0.5, "#f46d43",
+            0.8, "#d73027",
+            1,   "#a50026",
+          ],
+          "heatmap-opacity": 0.75,
+        },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
+
+    // Wealth heatmap (positive RWI → green)
+    map.addLayer(
+      {
+        id: "rwi-indonesia-heatmap-wealth",
+        source: "rwi-indonesia",
+        "source-layer": "rwi_indonesia",
+        type: "heatmap",
+        minzoom: 3,
+        paint: {
+          "heatmap-weight": ["max", 0, ["get", "rwi"]] as maplibregl.ExpressionSpecification,
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
+          "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
+          "heatmap-color": [
+            "interpolate", ["linear"], ["heatmap-density"],
+            0, "rgba(0,0,0,0)",
+            0.2, "#d9f0a3",
+            0.5, "#78c679",
+            0.8, "#238443",
+            1,   "#00441b",
+          ],
+          "heatmap-opacity": 0.75,
+        },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
+  }
+
+  // Kabupaten/Kota boundaries — idn_adm2 vector tiles from martin
+  if (!map.getSource("idn-adm2")) {
+    map.addSource("idn-adm2", {
+      type: "vector",
+      url: `${TILE_SERVER}/idn_adm2`,
+    });
+    map.addLayer(
+      {
+        id: "idn-adm2-fill-layer",
         type: "fill",
-        source: "kabupaten-rwi",
+        source: "idn-adm2",
+        "source-layer": "idn_adm2",
+        minzoom: 4,
         paint: {
-          "fill-color": [
-            "interpolate",
-            ["linear"],
-            ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
-            -0.7, "#2166ac",
-            -0.3, "#74add1",
-             0.0, "#f7f7f7",
-             0.4, "#f4a582",
-             1.4, "#b2182b",
-          ],
+          "fill-color": "#3b82f6",
           "fill-opacity": [
-            "case",
-            ["boolean", ["feature-state", "hover"], false], 0.6,
-            0.45,
+            "interpolate", ["linear"], ["zoom"],
+            4, 0.05,
+            10, 0.02,
           ],
         },
         layout: { visibility: "none" },
       },
-      "keuskupan-line",
+      map.getLayer("keuskupan-line")?.id,
     );
     map.addLayer(
       {
-        id: "kabupaten-rwi-line",
+        id: "idn-adm2-line-layer",
         type: "line",
-        source: "kabupaten-rwi",
+        source: "idn-adm2",
+        "source-layer": "idn_adm2",
+        minzoom: 4,
         paint: {
-          "line-color": "#555555",
-          "line-width": 0.4,
-          "line-opacity": 0.4,
+          "line-color": "#3b82f6",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 10, 1.5],
+          "line-opacity": 0.7,
         },
         layout: { visibility: "none" },
       },
-      "keuskupan-line",
+      map.getLayer("keuskupan-line")?.id,
     );
+  }
 
-    let hoveredKabId: string | number | null = null;
-    const rwi_popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
-
-    map.on("mousemove", "kabupaten-rwi-fill", (e) => {
-      if (hoveredKabId !== null) {
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
-      }
-      if (e.features && e.features.length > 0) {
-        hoveredKabId = e.features[0].id!;
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: true });
-        const p = e.features[0].properties as Record<string, unknown>;
-        const rwiVal = p.rwi_mean !== null && p.rwi_mean !== undefined ? Number(p.rwi_mean) : null;
-        const rwiStr = rwiVal !== null ? rwiVal.toFixed(3) : "N/A";
-        const label = rwiVal !== null
-          ? rwiVal >= 0.3 ? "Relatif kaya" : rwiVal <= -0.3 ? "Relatif miskin" : "Menengah"
-          : "";
-        rwi_popup
-          .setLngLat(e.lngLat)
-          .setHTML(`<div style="font-size:12px;line-height:1.5">
-            <b style="color:#111">${p.nama || ""}</b><br>
-            <span style="color:#555">${p.provinsi || ""}</span><br>
-            <span style="color:#111">RWI: <b>${rwiStr}</b>${label ? ` <em>(${label})</em>` : ""}</span><br>
-            <span style="color:#888;font-size:11px">${p.rwi_count || 0} titik data</span>
-          </div>`)
-          .addTo(map);
-      }
+  // Kecamatan boundaries — idn_admin3_hdx2020 vector tiles from martin
+  if (!map.getSource("idn-adm3")) {
+    map.addSource("idn-adm3", {
+      type: "vector",
+      url: `${TILE_SERVER}/idn_admin3_hdx2020`,
     });
-    map.on("mouseleave", "kabupaten-rwi-fill", () => {
-      if (hoveredKabId !== null) {
-        map.setFeatureState({ source: "kabupaten-rwi", id: hoveredKabId }, { hover: false });
-        hoveredKabId = null;
-      }
-      rwi_popup.remove();
-    });
+    map.addLayer(
+      {
+        id: "idn-adm3-fill-layer",
+        type: "fill",
+        source: "idn-adm3",
+        "source-layer": "idn_admin3_hdx2020",
+        minzoom: 8,
+        paint: {
+          "fill-color": "#f97316",
+          "fill-opacity": [
+            "interpolate", ["linear"], ["zoom"],
+            8, 0.04,
+            13, 0.01,
+          ],
+        },
+        layout: { visibility: "none" },
+      },
+      map.getLayer("keuskupan-line")?.id,
+    );
+    map.addLayer(
+      {
+        id: "idn-adm3-line-layer",
+        type: "line",
+        source: "idn-adm3",
+        "source-layer": "idn_admin3_hdx2020",
+        minzoom: 8,
+        paint: {
+          "line-color": "#f97316",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 8, 0.3, 13, 1.0],
+          "line-opacity": 0.6,
+        },
+        layout: { visibility: "none" },
+      },
+      map.getLayer("keuskupan-line")?.id,
+    );
   }
 
 }
@@ -700,16 +789,38 @@ const LAYER_CONFIGS: LayerConfig[] = [
   },
   {
     id: "rwi",
-    label: "Relative Wealth Index",
-    layers: ["kabupaten-rwi-fill", "kabupaten-rwi-line"],
+    label: "Relative Wealth Index (RWI)",
+    layers: ["rwi-indonesia-layer", "rwi-indonesia-heatmap-poverty", "rwi-indonesia-heatmap-wealth"],
     color: "#e53935",
     legend: {
       type: "gradient",
       gradient: {
-        colors: ["#2166ac", "#74add1", "#f7f7f7", "#f4a582", "#b2182b"],
+        colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
         labels: ["Miskin", "", "Tengah", "", "Kaya"],
       },
-      note: "Rata-rata RWI per kabupaten/kota. Sumber: Meta Data for Good 2024.",
+      note: "Grid ~2.4km per sel. Merah=kemiskinan relatif, hijau=kemampuan relatif. Sumber: Meta Data for Good.",
+    },
+  },
+  {
+    id: "kabupaten",
+    label: "Batas Kabupaten/Kota",
+    layers: ["idn-adm2-fill-layer", "idn-adm2-line-layer"],
+    color: "#3b82f6",
+    legend: {
+      type: "simple",
+      items: [{ color: "#3b82f6", label: "Kabupaten / Kota", shape: "square" }],
+      note: "Batas administrasi tingkat II (kabupaten/kota). Sumber: BPS / HDX.",
+    },
+  },
+  {
+    id: "kecamatan",
+    label: "Batas Kecamatan",
+    layers: ["idn-adm3-fill-layer", "idn-adm3-line-layer"],
+    color: "#f97316",
+    legend: {
+      type: "simple",
+      items: [{ color: "#f97316", label: "Kecamatan", shape: "square" }],
+      note: "Batas administrasi tingkat III (kecamatan). Tampil mulai zoom 8. Sumber: HDX 2020.",
     },
   },
   {
@@ -831,7 +942,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
   },
 ];
 
-const LAYER_STORAGE_KEY = "synodal-layer-visibility";
+const LAYER_STORAGE_KEY = "synodal-layer-visibility-v2";
 
 class LayerToggleControl implements IControl {
   private _container!: HTMLDivElement;
@@ -863,7 +974,9 @@ class LayerToggleControl implements IControl {
       const hiddenByDefault =
         config.id === "lcz" ||
         config.id === "disaster-risk" ||
-        config.id === "rwi";
+        config.id === "rwi" ||
+        config.id === "kabupaten" ||
+        config.id === "kecamatan";
       defaultStates.set(config.id, !hiddenByDefault);
       // Add child layer states for groups
       if (config.children) {
