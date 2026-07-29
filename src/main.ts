@@ -557,64 +557,22 @@ function addLayers() {
     });
   }
 
-  // Relative Wealth Index — zoom-adaptive:
-  //   zoom < 7  → choropleth per kabupaten (rwi_mean aggregate, GeoJSON)
-  //   zoom ≥ 7  → diverging circle per sel ~2.4km (rwi_indonesia vector tiles)
-  if (!map.getSource("kabupaten-rwi")) {
-    map.addSource("kabupaten-rwi", {
-      type: "geojson",
-      data: "/data/kabupaten_rwi.geojson",
-      generateId: true,
-    });
-    map.addLayer(
-      {
-        id: "rwi-choropleth-fill",
-        type: "fill",
-        source: "kabupaten-rwi",
-        maxzoom: 7,
-        paint: {
-          "fill-color": [
-            "interpolate", ["linear"],
-            ["coalesce", ["to-number", ["get", "rwi_mean"], 0], 0],
-            -1.0, "#a50026",
-            -0.4, "#f46d43",
-             0.0, "#fee08b",
-             0.4, "#a6d96a",
-             1.2, "#006837",
-          ],
-          "fill-opacity": 0.65,
-        },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-line",
-    );
-    map.addLayer(
-      {
-        id: "rwi-choropleth-line",
-        type: "line",
-        source: "kabupaten-rwi",
-        maxzoom: 7,
-        paint: { "line-color": "#333", "line-width": 0.3, "line-opacity": 0.3 },
-        layout: { visibility: "none" },
-      },
-      "keuskupan-line",
-    );
-  }
-
+  // Relative Wealth Index — 3 sub-layers toggleable (sama persis titan-admf-poc)
   if (!map.getSource("rwi-indonesia")) {
     map.addSource("rwi-indonesia", {
       type: "vector",
       url: `${TILE_SERVER}/rwi_indonesia`,
     });
+
     map.addLayer(
       {
         id: "rwi-indonesia-layer",
         source: "rwi-indonesia",
         "source-layer": "rwi_indonesia",
         type: "circle",
-        minzoom: 7,
+        minzoom: 3,
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 2, 10, 4, 14, 8],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 1.5, 10, 5, 14, 9],
           "circle-color": [
             "interpolate", ["linear"], ["get", "rwi"],
             -1.75, "#a50026",
@@ -623,13 +581,53 @@ function addLayers() {
              0.40, "#a6d96a",
              2.00, "#006837",
           ],
-          "circle-opacity": 0.8,
+          "circle-opacity": 0.75,
           "circle-stroke-width": 0,
         },
         layout: { visibility: "none" },
       },
       "keuskupan-line",
     );
+
+    const rwiHeatmaps = [
+      {
+        id: "rwi-indonesia-heatmap-poverty",
+        weightExpr: ["max", 0, ["-", 0, ["get", "rwi"]]] as maplibregl.ExpressionSpecification,
+        colors: ["#fee08b", "#f46d43", "#d73027", "#a50026"],
+      },
+      {
+        id: "rwi-indonesia-heatmap-wealth",
+        weightExpr: ["max", 0, ["get", "rwi"]] as maplibregl.ExpressionSpecification,
+        colors: ["#d9f0a3", "#78c679", "#238443", "#00441b"],
+      },
+    ];
+    rwiHeatmaps.forEach(({ id, weightExpr, colors }) => {
+      map.addLayer(
+        {
+          id,
+          source: "rwi-indonesia",
+          "source-layer": "rwi_indonesia",
+          type: "heatmap",
+          minzoom: 3,
+          paint: {
+            "heatmap-weight": weightExpr,
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
+            "heatmap-color": [
+              "interpolate", ["linear"], ["heatmap-density"],
+              0, "rgba(0,0,0,0)",
+              0.2, colors[0],
+              0.5, colors[1],
+              0.8, colors[2],
+              1,   colors[3],
+            ],
+            "heatmap-opacity": 0.75,
+          },
+          layout: { visibility: "none" },
+        },
+        "keuskupan-line",
+      );
+    });
   }
 
   // Kabupaten/Kota boundaries — idn_adm2 vector tiles from martin
@@ -787,6 +785,7 @@ interface LayerChildConfig {
   label: string;
   layers: string[];
   color: string;
+  legend?: LayerLegend;
 }
 
 interface LayerConfig {
@@ -818,15 +817,60 @@ const LAYER_CONFIGS: LayerConfig[] = [
   {
     id: "rwi",
     label: "Relative Wealth Index (RWI)",
-    layers: ["rwi-choropleth-fill", "rwi-choropleth-line", "rwi-indonesia-layer"],
-    color: "#e53935",
+    layers: ["rwi-indonesia-layer", "rwi-indonesia-heatmap-poverty", "rwi-indonesia-heatmap-wealth"],
+    color: "#a6d96a",
+    isGroup: true,
+    children: [
+      {
+        id: "rwi-points",
+        label: "Titik (nilai per grid)",
+        layers: ["rwi-indonesia-layer"],
+        color: "#a6d96a",
+        legend: {
+          type: "gradient",
+          gradient: {
+            colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
+            labels: ["-1.73 (termiskin)", "-0.75", "-0.18 (median)", "+0.4", "+1.95 (terkaya)"],
+          },
+          note: "Angka aktual skor RWI per sel ~2.4km. Bukan Rupiah — relatif dalam Indonesia saja.",
+        },
+      },
+      {
+        id: "rwi-heatmap-poverty",
+        label: "Heatmap Kemiskinan",
+        layers: ["rwi-indonesia-heatmap-poverty"],
+        color: "#d73027",
+        legend: {
+          type: "gradient",
+          gradient: {
+            colors: ["#fee08b", "#f46d43", "#d73027", "#a50026"],
+            labels: ["Sedikit titik miskin di sekitar", "", "", "Banyak titik miskin menumpuk"],
+          },
+          note: "Kepekatan RELATIF — akumulasi lokal grid RWI < -0.18 yang berdekatan.",
+        },
+      },
+      {
+        id: "rwi-heatmap-wealth",
+        label: "Heatmap Kemampuan (lebih kaya)",
+        layers: ["rwi-indonesia-heatmap-wealth"],
+        color: "#238443",
+        legend: {
+          type: "gradient",
+          gradient: {
+            colors: ["#d9f0a3", "#78c679", "#238443", "#00441b"],
+            labels: ["Sedikit titik kaya di sekitar", "", "", "Banyak titik kaya menumpuk"],
+          },
+          note: "Kepekatan RELATIF — akumulasi lokal grid RWI > -0.18 yang berdekatan.",
+        },
+      },
+    ],
     legend: {
       type: "gradient",
       gradient: {
         colors: ["#a50026", "#f46d43", "#fee08b", "#a6d96a", "#006837"],
-        labels: ["Miskin", "", "Tengah", "", "Kaya"],
+        labels: ["-1.73 (termiskin)", "-0.75", "-0.18 (median)", "+0.4", "+1.95 (terkaya)"],
       },
-      note: "Zoom < 7: choropleth per kabupaten. Zoom ≥ 7: titik per sel ~2.4km. Sumber: Meta Data for Good.",
+      note: "Meta Data for Good · 115.625 titik grid ~2.4km se-Indonesia.",
     },
   },
   {
