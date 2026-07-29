@@ -169,8 +169,11 @@ export const MapBasemapsRaster: Record<string, BaseMap> = {
 export const MapBasemapsVector: Record<string, BaseMap> = {
   street: _MapBasemapsVector.OpenFreeMapBright,
   satellite: _MapBasemapsVector.OpenFreeMapLiberty,
-  grayscale: _MapBasemapsVector.OpenFreeMapDark,
+  dark: _MapBasemapsVector.OpenFreeMapDark,
+  positron: _MapBasemapsVector.OpenFreeMapPositron,
 };
+
+export type BasemapKey = 'street' | 'satellite' | 'dark' | 'positron';
 
 export const DefaultBasemapKey = "street";
 export const InitialViewState = {

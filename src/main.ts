@@ -603,14 +603,14 @@ function addLayers() {
 
 }
 
-function toogleBasemap(isRaster: boolean) {
+function toogleBasemap(isRaster: boolean, key: string = "street") {
   const style: string | maplibregl.StyleSpecification = isRaster
     ? {
         version: 8,
         sources: {
           "raster-tiles": {
             type: "raster",
-            tiles: [MapBasemapsRaster["satellite"].url],
+            tiles: [MapBasemapsRaster[key]?.url ?? MapBasemapsRaster["satellite"].url],
             tileSize: 128,
           },
         },
@@ -622,7 +622,7 @@ function toogleBasemap(isRaster: boolean) {
           },
         ],
       }
-    : MapBasemapsVector["street"].url;
+    : (MapBasemapsVector[key]?.url ?? MapBasemapsVector["street"].url);
 
   map.setStyle(style);
   isRaster ? map.setMaxZoom(16) : map.setMaxZoom(null);
@@ -1297,28 +1297,35 @@ class LayerToggleControl implements IControl {
 
 class BasemapControl implements IControl {
   private _container!: HTMLDivElement;
-  private _button!: HTMLButtonElement;
-  private _isRaster: boolean = false;
 
   onAdd(): HTMLElement {
     this._container = document.createElement("div");
-    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+    this._container.className = "maplibregl-ctrl maplibregl-ctrl-group maplibregl-ctrl-basemap";
 
-    this._button = document.createElement("button");
-    this._button.type = "button";
-    this._button.title = "Toggle Satellite/Street";
-    this._button.textContent = this._isRaster ? "🛰️" : "🗺️";
-    this._button.style.fontSize = "16px";
-    this._button.style.width = "29px";
-    this._button.style.height = "29px";
+    const options: { key: string; label: string; raster: boolean }[] = [
+      { key: "street",   label: "🗺️ Street",   raster: false },
+      { key: "satellite",label: "🛰️ Satellite", raster: true  },
+      { key: "dark",     label: "🌑 Dark",      raster: false },
+      { key: "positron", label: "⬜ Positron",  raster: false },
+    ];
 
-    this._button.addEventListener("click", () => {
-      this._isRaster = !this._isRaster;
-      this._button.textContent = this._isRaster ? "🛰️" : "🗺️";
-      toogleBasemap(this._isRaster);
+    const select = document.createElement("select");
+    select.title = "Basemap";
+    select.style.cssText = "font-size:11px;padding:3px 4px;border:none;background:white;cursor:pointer;height:29px;max-width:100px;";
+
+    options.forEach(({ key, label }) => {
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.textContent = label;
+      select.appendChild(opt);
     });
 
-    this._container.appendChild(this._button);
+    select.addEventListener("change", () => {
+      const chosen = options.find(o => o.key === select.value)!;
+      toogleBasemap(chosen.raster, chosen.key);
+    });
+
+    this._container.appendChild(select);
     return this._container;
   }
 
