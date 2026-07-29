@@ -612,7 +612,8 @@ function addLayers() {
           paint: {
             "heatmap-weight": weightExpr,
             "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 3, 0.6, 12, 2],
-            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 12, 24],
+            // B: radius tighter di zoom tinggi — 24→8 px, reveal intra-urban pockets
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 8, 12, 10, 8, 14, 5],
             "heatmap-color": [
               "interpolate", ["linear"], ["heatmap-density"],
               0, "rgba(0,0,0,0)",
@@ -628,6 +629,34 @@ function addLayers() {
         "keuskupan-line",
       );
     });
+
+    // A: Kantong Kemiskinan — circle filter RWI < -0.3, merah solid, minzoom 8
+    // Hanya tampilkan sel yang jelas di bawah rata-rata, mengungkap pocket di dalam FUA kaya
+    map.addLayer(
+      {
+        id: "rwi-poverty-pockets",
+        source: "rwi-indonesia",
+        "source-layer": "rwi_indonesia",
+        type: "circle",
+        minzoom: 8,
+        filter: ["<", ["get", "rwi"], -0.3],
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 3, 11, 6, 14, 10],
+          "circle-color": [
+            "interpolate", ["linear"], ["get", "rwi"],
+            -1.75, "#67000d",
+            -0.75, "#cb181d",
+            -0.30, "#fb6a4a",
+          ],
+          "circle-opacity": 0.85,
+          "circle-stroke-color": "#fff",
+          "circle-stroke-width": 0.5,
+          "circle-stroke-opacity": 0.4,
+        },
+        layout: { visibility: "none" },
+      },
+      "keuskupan-line",
+    );
   }
 
   // Kabupaten/Kota boundaries — idn_adm2 vector tiles from martin
@@ -817,7 +846,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
   {
     id: "rwi",
     label: "Relative Wealth Index (RWI)",
-    layers: ["rwi-indonesia-layer", "rwi-indonesia-heatmap-poverty", "rwi-indonesia-heatmap-wealth"],
+    layers: ["rwi-indonesia-layer", "rwi-indonesia-heatmap-poverty", "rwi-indonesia-heatmap-wealth", "rwi-poverty-pockets"],
     color: "#a6d96a",
     isGroup: true,
     children: [
@@ -861,6 +890,20 @@ const LAYER_CONFIGS: LayerConfig[] = [
             labels: ["Sedikit titik kaya di sekitar", "", "", "Banyak titik kaya menumpuk"],
           },
           note: "Kepekatan RELATIF — akumulasi lokal grid RWI > -0.18 yang berdekatan.",
+        },
+      },
+      {
+        id: "rwi-poverty-pockets",
+        label: "Kantong Kemiskinan (RWI < -0.3)",
+        layers: ["rwi-poverty-pockets"],
+        color: "#cb181d",
+        legend: {
+          type: "gradient",
+          gradient: {
+            colors: ["#fb6a4a", "#cb181d", "#67000d"],
+            labels: ["RWI -0.3", "-0.75", "-1.75 (termiskin)"],
+          },
+          note: "Hanya sel RWI < -0.3 (jelas di bawah median). Tampil mulai zoom 8 — cocok untuk analisis intra-FUA dan metropolitan.",
         },
       },
     ],
