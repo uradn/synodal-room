@@ -493,10 +493,14 @@ function addLayers() {
             <strong style="font-size:14px;display:block;margin-bottom:8px;line-height:1.3;color:#000">${str("nama") ?? ""}</strong>
 
             <table style="border-collapse:collapse;width:100%;font-size:12px">
-              ${row("Uskup", str("uskup"), "👤 ")}
+              ${row("Uskup", str("uskup") ? `${str("uskup")} <span style="color:#bbb;font-size:10px">(per ${str("uskup_updated") ?? "—"})</span>` : null, "👤 ")}
               ${row("Katedral", str("katedral"), "⛪ ")}
               ${row("Wilayah", str("wilayah_admin"), "📍 ")}
-              ${row("Umat Katolik", umatShow, "🙏 ")}
+              ${row("Umat Katolik", umatShow
+                ? (num("populasi_wilayah")
+                    ? `${umatShow} <span style="color:#888;font-size:10.5px">dari ±${(num("populasi_wilayah")! / 1e6).toFixed(1)}jt total penduduk</span>`
+                    : umatShow)
+                : null, "🙏 ")}
               ${row("Paroki", parokiShow, "🏘️ ")}
               ${row("Stasi", stasiShow, "📌 ")}
             </table>
@@ -513,7 +517,7 @@ function addLayers() {
             </div>
 
             <div style="margin-top:7px;font-size:10px;color:#bbb;text-align:right">
-              Sumber: Bimas Katolik Kemenag 2025 · Wikipedia ID
+              Sumber: Bimas Katolik Kemenag 2025 · BPS SP2020 · Wikipedia ID
             </div>
           </div>
         `)
