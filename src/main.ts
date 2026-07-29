@@ -983,7 +983,7 @@ const LAYER_CONFIGS: LayerConfig[] = [
       items: [
         { color: "#FFA500", label: "Functional Urban Area", shape: "square" },
       ],
-      note: "Opacity decreases at higher zoom levels",
+      note: "Area fungsional sebuah kota — mencakup pusat kota (urban center) ditambah wilayah sekitarnya yang terhubung secara ekonomi lewat komuter harian. Bukan batas administrasi resmi. Klik area untuk lihat data populasi dan luas. Sumber: GHSL/JRC Uni Eropa (data 2015).",
     },
   },
   {
