@@ -507,12 +507,49 @@ function addLayers() {
               ${str("catatan_strategis")}
             </div>` : ""}
 
+            <div id="ks-news-${str("kode")}" style="margin-top:9px;padding:7px 9px;background:#f0f4ff;border-left:3px solid #6366f1;border-radius:0 4px 4px 0;font-size:11.5px;color:#444;line-height:1.5">
+              <div style="font-weight:600;color:#333;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.4px">🔍 Berita Terbaru</div>
+              <span style="color:#999;font-style:italic">Memuat…</span>
+            </div>
+
             <div style="margin-top:7px;font-size:10px;color:#bbb;text-align:right">
               Sumber: Bimas Katolik Kemenag 2025 · Wikipedia ID
             </div>
           </div>
         `)
         .addTo(map);
+
+      // Async fetch berita — non-blocking, inject setelah popup terpasang
+      const kode = str("kode");
+      const nama = str("nama") ?? "";
+      if (kode && nama) {
+        const newsEl = document.getElementById(`ks-news-${kode}`);
+        if (newsEl) {
+          const esc = (s: string) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+          // Only allow https URLs to prevent javascript: protocol injection
+          const safeUrl = (u: string) => /^https?:\/\//.test(u) ? u : "#";
+          const q = encodeURIComponent(`${nama} Gereja Katolik Indonesia berita terbaru`);
+          fetch(`http://localhost:8300/api/search?q=${q}`)
+            .then((r) => r.json())
+            .then((data: { results?: Array<{ title: string; url: string; snippet: string }>; error?: string }) => {
+              if (!newsEl) return;
+              if (data.error || !data.results?.length) {
+                newsEl.innerHTML = `<div style="font-weight:600;color:#333;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.4px">🔍 Berita Terbaru</div><span style="color:#bbb;font-style:italic">Tidak ada hasil.</span>`;
+                return;
+              }
+              const items = data.results.slice(0, 3).map((r) =>
+                `<div style="margin-bottom:7px">
+                  <a href="${safeUrl(r.url)}" target="_blank" rel="noopener noreferrer" style="color:#3730a3;font-weight:600;font-size:11.5px;text-decoration:none;line-height:1.3">${esc(r.title)}</a>
+                  <div style="color:#555;font-size:11px;margin-top:2px;line-height:1.4">${esc(r.snippet)}</div>
+                </div>`
+              ).join("");
+              newsEl.innerHTML = `<div style="font-weight:600;color:#333;margin-bottom:5px;font-size:11px;text-transform:uppercase;letter-spacing:.4px">🔍 Berita Terbaru</div>${items}`;
+            })
+            .catch(() => {
+              if (newsEl) newsEl.style.display = "none";
+            });
+        }
+      }
     });
   }
 
